@@ -90,10 +90,16 @@ Ejemplo de ejecución para estenografía:
 ```bash
 $ make MODE="1" IMG_PATH="../test_cases/1.jpg" TXT_PATH="../test_cases/1.txt" run_esteg
 ```
+Al ejecutar ese programa se generará la imagen con el texto cifrado en 
+`/output/secret.png`.
+
 * Para descubrir texto de una imagen
 ```bash
-$ make MODE="2" IMG_PATH="../test_cases/1.jpg" run_esteg
+$ make MODE="2" IMG_PATH="../test_cases/secret.png" run_esteg
 ```
+Se mostrará el texto que fue cifrado en la imagen.
+Tambien se puede mostrar el texto de una imagen que fue cifrada con el 
+comando anterior.
 
 ---
 
@@ -106,6 +112,8 @@ Agregué unas imágenes para probar los filtros, ubicadas en `/test_cases/*.jpg`
 Para salir de la interfaz gráfica basta con apretar una tecla cualquiera con 
 la aplicación abierta, porque tiene un bug que cuando le das click en cerrar 
 se queda zombie el proceso.
+
+Por ser un lenguaje interpretado, la aplicación de filtro llega a ser lenta.
 
 ## Integrante(s)
 

@@ -9,7 +9,7 @@ all:
 	@echo "make FILTER_ID="" IMG_PATH="" run_filter"
 	@echo "    Aplica el filtro seleccionado a la imagen."
 	@echo "make MODE="" IMG_PATH="" TXT_PATH="" run_esteg"
-	@echo "		Aplica el proceso de estenografía"
+	@echo "    Aplica el proceso de estenografía"
 
 prepare-env:
 	@if ! [ -x "$(command -v pip3)" ] 2> /dev/null ; then \
@@ -26,8 +26,9 @@ run_filter:
 	@cd src && python3 filters.py3 --filter ${FILTER_ID} --img ${IMG_PATH}
 
 run_esteg:
+	@mkdir output 2> /dev/null || true
 	@if [ ${MODE} = "1" ]; then \
 		cd src && python3 steganography.py3 --mode ${MODE} --img ${IMG_PATH} --txt ${TXT_PATH} ; \
 	else \
-		cd src && python3 steganography.py3 --mode ${MODE} --img ${IMG_PATH} ; \
+		cd src && python3 steganography.py3 --mode ${MODE} --img ${IMG_PATH} --txt -1; \
 	fi

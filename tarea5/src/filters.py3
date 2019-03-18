@@ -5,8 +5,8 @@ from enum import Enum
 import cv2
 
 
-def show_image_with_filter(image):
-    cv2.imshow('Practica 5', image)
+def show_image_with_filter(cv_image):
+    cv2.imshow('Practica 5', cv_image)
     print('Imagen procesada exitosamente')
     cv2.waitKey(0)
     cv2.destroyAllWindows()
@@ -17,233 +17,132 @@ class Filter(Enum):
     COLOR_OIL = 1
     GRAY_TONE_OIL = 2
 
-class Steganography(Enum):
-    HIDE_TEXT = 0
-    REVEAL_TEXT = 1
 
 class Image_Processor(object):
 
     def __init__(self, image_path, filter_id, input_parser):
-        self.__image = cv2.imread(image_path)
-        self.height, self.width, _ = self.__image.shape
+        self.__cv_image = cv2.imread(image_path)
+        self.height, self.width, _ = self.__cv_image.shape
         self.parsed_input = input_parser
-        
-        if self.parsed_input.filter_selected:
-            self.__apply_filter(filter_id)
-            show_image_with_filter(self.__image)
-        else:
-            flag = self.parsed_input.stenography_flag
-            if flag == Steganography.HIDE_TEXT:
-                self.__hide_text_in_image()
-            elif flag == Steganography.REVEAL_TEXT:
-                self.__reveal_text_in_image()
+
+        self.__apply_filter(filter_id)
+
+        show_image_with_filter(self.__cv_image)
 
     def __apply_filter(self, filter_id):
         if filter_id == Filter.SEPIA:
-            self.__blur_filter()
+            depth = self.parsed_input.sepia_arg
+            self.__sepia_filter(depth)
         elif filter_id == Filter.COLOR_OIL:
-            self.__motion_blur_filter()
+            self.__color_oil_filter()
         elif filter_id == Filter.GRAY_TONE_OIL:
-            self.__find_edges_filter()
+            self.__gray_oil_filter()
 
     def __normalize(self, n):
         return 0 if (n < 0) else (n if (n < 256) else 255)
 
     def __sepia_filter(self, depth):
-        for x in range(self.width):
-            for y in range(self.height):
-                b, g, r = self.__image[x, y]
+        for x in range(self.height):
+            for y in range(self.width):
+                b, g, r = self.__cv_image[x, y]
 
-                rr = self.__normalize(r+(depth*2))
-                gg = self.__normalize(g+depth)
-                if rr <= ((depth*2)-1):
+                rr = self.__normalize(r + (depth * 2))
+                gg = self.__normalize(g + depth)
+                if rr <= ((depth * 2) - 1):
                     rr = 255
-                if gg <= depth-1:
+                if gg <= depth - 1:
                     gg = 255
 
-                self.__image.itemset((x, y, 2,), rr)
-                self.__image.itemset((x, y, 1,), gg)
-                self.__image.itemset((x, y, 0,), b)
+                self.__cv_image.itemset((x, y, 2,), rr)
+                self.__cv_image.itemset((x, y, 1,), gg)
+                self.__cv_image.itemset((x, y, 0,), b)
 
-    def __convolution(self, matriz, factor, bias):
-        w, h, tam = self.width, self.height, len(matriz)
-        rad = tam // 2
-        r, g, b = 0, 0, 0
+    def __color_oil_filter(self):
+        radius = 7
 
-        original = [[None] * (h) for _ in range(w)]
-        for x in range(w):
-            for y in range(h):
-                original[x][y] = self.__image[x, y]
+        dic_freq_r, dic_freq_g, dic_freq_b = dict(), dict(), dict()
 
-        for x in range(w):
-            xi = rad - x if (x < rad) else 0
-            xf = rad + w - x if ((w - x) <= rad) else tam
-            for y in range(h):
-                r, g, b = 0, 0, 0
+        for x in range(self.height):
+            aux_x = x + radius
+            for y in range(self.width):
+                aux_y = y + radius
 
-                yi = rad - y if (y < rad) else 0
-                yf = rad + h - y if ((h - y) <= rad) else tam
+                max_r, max_g, max_b = float('inf'), float('inf'), float('inf')
 
-                i = int(xi)
-                px = int(x - rad)
-                while i < xf:
-                    j = int(yi)
-                    py = int(y - rad)
+                for k in range(x, aux_x):
+                    if k >= self.height:
+                        break
+                    for l in range(y, aux_y):
+                        if l >= self.width:
+                            break
+                        b, g, r = self.__cv_image[k, l]
 
-                    while j < yf:
-                        val = matriz[i][j]
-                        r += original[px + i][py + j][2] * val
-                        g += original[px + i][py + j][1] * val
-                        b += original[px + i][py + j][0] * val
+                        if max_r == float('inf'):
+                            max_r, max_g, max_b = r, g, b
 
-                        j += 1
-                    i += 1
+                        if r in dic_freq_r:
+                            dic_freq_r[r] += 1
+                            max_r = max_r if dic_freq_r[
+                                max_r] > dic_freq_r[r] else r
+                        else:
+                            dic_freq_r[r] = 1
 
-                r = r * factor + bias
-                g = g * factor + bias
-                b = b * factor + bias
+                        if g in dic_freq_g:
+                            dic_freq_g[g] += 1
+                            max_g = max_g if dic_freq_g[
+                                max_g] > dic_freq_g[g] else g
+                        else:
+                            dic_freq_g[g] = 1
 
-                self.__image.itemset((x, y, 2,), self.__normalize(int(r)))
-                self.__image.itemset((x, y, 1,), self.__normalize(int(g)))
-                self.__image.itemset((x, y, 0,), self.__normalize(int(b)))
+                        if b in dic_freq_b:
+                            dic_freq_r[b] += 1
+                            max_b = max_b if dic_freq_b[
+                                max_b] > dic_freq_b[b] else b
+                        else:
+                            dic_freq_r[b] = 1
 
-    def __blur_filter(self):
-        m = [
-            [0, 0, 1, 0, 0],
-            [0, 1, 1, 1, 0],
-            [1, 1, 1, 1, 1],
-            [0, 1, 1, 1, 0],
-            [0, 0, 1, 0, 0]
-        ]
-        return self.__convolution(m, 1.0 / 13.0, 0)
+                dic_freq_r.clear()
+                dic_freq_g.clear()
+                dic_freq_b.clear()
 
-    def __motion_blur_filter(self):
-        m = [
-            [1, 0, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 0, 1]
-        ]
-        return self.__convolution(m, 1.0 / 7.0, 0)
+                self.__cv_image.itemset((x, y, 2,), max_r)
+                self.__cv_image.itemset((x, y, 1,), max_g)
+                self.__cv_image.itemset((x, y, 0,), max_b)
 
-    def __find_edges_filter(self):
-        m = [
-            [-1, -1, -1],
-            [-1, 8, -1],
-            [-1, -1, -1]
-        ]
-        return self.__convolution(m, 1, 0)
+    def __gray_scale(self):
+        for x in range(self.height):
+            for y in range(self.width):
+                b, g, r = self.__cv_image[x, y]
+                gray = (r * 0.29) + (g * 0.59) + (b * 0.12)
 
-    def __sharpen_filter(self):
-        b = [
-            [-1, -1, -1],
-            [-1, 9, -1],
-            [-1, -1, -1]
-        ]
-        return self.__convolution(b, 1, 0)
+                self.__cv_image.itemset((x, y, 2,), gray)
+                self.__cv_image.itemset((x, y, 1,), gray)
+                self.__cv_image.itemset((x, y, 0,), gray)
 
-    def __emboss_filter(self, mode):
-        eH = [[-1, -1, -1], [0, 0, 0], [1, 1, 1]]
-        if mode < 0:
-            return self.__convolution(eH, 1, 128)
-        eV = [[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]]
-        if mode > 0:
-            return self.__convolution(eV, 1, 128)
-        e45 = [[-1, -1, 0], [-1, 0, 1], [0, 1, 1]]
-        return self.__convolution(e45, 1, 128)
-
-    def __median_filter(self):
-        w = self.width
-        h = self.height
-        tam = 3
-        rad = tam // 2
-        r, g, b = [], [], []
-
-        original = [[None] * (h) for _ in range(w)]
-        for x in range(w):
-            for y in range(h):
-                original[x][y] = self.__image[x, y]
-
-        for x in range(w):
-            xi = rad - x if (x < rad) else 0
-            xf = rad + w - x if ((w - x) <= rad) else tam
-            for y in range(h):
-                yi = rad - y if (y < rad) else 0
-                yf = rad + h - y if ((h - y) <= rad) else tam
-
-                r = [None for _ in range((xf - xi) * (yf - yi))]
-                g = [None for _ in range(len(r))]
-                b = [None for _ in range(len(r))]
-
-                px = x - rad
-                i = 0
-                while (i + xi) < xf:
-                    j = 0
-                    py = y - rad
-                    while (j + yi) < yf:
-                        val = matriz[i][j]
-                        r[j + (yf - yi) * i] = original[px +
-                                                        i + xi][py + j + yi][2]
-                        g[j + (yf - yi) * i] = original[px +
-                                                        i + xi][py + j + yi][1]
-                        b[j + (yf - yi) * i] = original[px +
-                                                        i + xi][py + j + yi][0]
-
-                        j += 1
-                    i += 1
-
-                self.__image.itemset((x, y, 2,), self.__mediana(r))
-                self.__image.itemset((x, y, 1,), self.__mediana(g))
-                self.__image.itemset((x, y, 0,), self.__mediana(b))
-
-    def __median(self, x):
-        xn = len(x)
-        m = -1
-
-        i = 0
-        j = 0
-        while i <= xn // 2:
-            for k in range(i + 1, xn):
-                if x[j] > x[k]:
-                    j = k
-            m = x[j]
-            x[j] = x[i]
-            x[i] = m
-
-            i += 1
-            j = 1
-
-        if xn % 2 == 0:
-            return m + x[xn // 2 - 1] // 2
-        return m
+    def __gray_oil_filter(self):
+        self.__color_oil_filter()
+        self.__gray_scale()
 
 
 class Input_Parser(object):
 
     def __init__(self, filter_):
         self.filter_ = filter_
-        self.emboss__option = -1
+        self.sepia_arg = -1
         self.__parse_input()
 
     def __parse_input(self):
-        if self.filter_ == Filter.EMBOSS:
-            message = 'Ingresa la opción para el filtro emboss\n'
-            message += '0 : horizontal\n1 : es a 45 grados \n2 : vertical\n'
+        if self.filter_ == Filter.SEPIA:
+            message = 'Ingresa la la profundidad para el sepia: [0, 255]\n'
             opt = int(input(message))
-            self.emboss__option = opt
+            self.sepia_arg = opt
 
 
 def parse_filter_id(id):
     return {
-        '0': Filter.BLUR,
-        '1': Filter.MOTION_BLUR,
-        '2': Filter.FIND_EDGES,
-        '3': Filter.SHARPEN,
-        '4': Filter.EMBOSS,
-        '5': Filter.MEDIAN
+        '0': Filter.SEPIA,
+        '1': Filter.COLOR_OIL,
+        '2': Filter.GRAY_TONE_OIL,
     }[id]
 
 
@@ -255,10 +154,6 @@ if __name__ == '__main__':
     filter_id = args.filter
     image_path = args.img
 
-    if filter_id and image_path:
-        input_parser = Input_Parser(parse_filter_id(filter_id))
-        image_processor = Image_Processor(
-            image_path, parse_filter_id(filter_id), input_parser)
-    else:
-        print('Argumentos inválidos')
-        sys.exit(-1)
+    input_parser = Input_Parser(parse_filter_id(filter_id))
+    image_processor = Image_Processor(
+        image_path, parse_filter_id(filter_id), input_parser)
