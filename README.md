@@ -1,4 +1,4 @@
-# Proceso Digital de Imagenes
+# Proceso Digital de Imágenes
 ## Facultad de Ciencias, UNAM
 
 
